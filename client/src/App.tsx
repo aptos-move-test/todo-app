@@ -80,9 +80,20 @@ function App() {
     // build a transaction payload to be submited
     const payload = {
       type: "entry_function_payload",
-      function: `${moduleAddress}::todolist::create_task`,
+      function: `${moduleAddress}::main::create_task`,
       type_arguments: [],
       arguments: [newTask],
+    };
+
+    // hold the latest task.task_id from our local state
+    const latestId = tasks.length > 0 ? parseInt(tasks[tasks.length - 1].task_id) + 1 : 1;
+
+    // build a newTaskToPush objct into our local state
+    const newTaskToPush = {
+      address: account.address,
+      completed: false,
+      content: newTask,
+      task_id: latestId + "",
     };
 
     try {
@@ -91,26 +102,14 @@ function App() {
       // wait for transaction
       await client.waitForTransaction(response.hash);
 
-            // hold the latest task.task_id from our local state
-      const latestId = tasks.length > 0 ? parseInt(tasks[tasks.length - 1].task_id) + 1 : 1;
-
-      // build a newTaskToPush objct into our local state
-      const newTaskToPush = {
-        address: account.address,
-        completed: false,
-        content: newTask,
-        task_id: latestId + "",
-      };
-
       // Create a new array based on current state:
       let newTasks = [...tasks];
 
-      // Add item to it
-      newTasks.unshift(newTaskToPush);
-
+      // Add item to the tasks array
+      newTasks.push(newTaskToPush);
       // Set state
       setTasks(newTasks);
-            // clear input text
+      // clear input text
       setNewTask("");
     } catch (error: any) {
       console.log("error", error);
@@ -142,17 +141,13 @@ function App() {
     }
   };
 
-  const onCheckboxChange = async (
-    event: CheckboxChangeEvent,
-    taskId: string
-  ) => {
+  const onCheckboxChange = async (event: CheckboxChangeEvent, taskId: string) => {
     if (!account) return;
     if (!event.target.checked) return;
     setTransactionInProgress(true);
     const payload = {
       type: "entry_function_payload",
-      function:
-        `${moduleAddress}::todolist::complete_task`,
+      function: `${moduleAddress}::main::complete_task`,
       type_arguments: [],
       arguments: [taskId],
     };
@@ -195,90 +190,72 @@ function App() {
         </Col>
       </Row>
     </Layout>
-    {!accountHasList && (
-      <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
-        <Col span={8} offset={8}>
-        <>
     <Spin spinning={transactionInProgress}>
-    {
-  !accountHasList ? (
-    <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
-      <Col span={8} offset={8}>
-        <Button
-          disabled={!account}
-          block
-          onClick={addNewList}
-          type="primary"
-          style={{ height: "40px", backgroundColor: "#3f67ff" }}
-        >
-          Add new list
-        </Button>
-      </Col>
-    </Row>
-  ) : (
-    <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
-      <Col span={8} offset={8}>
-      <Input.Group compact>
-      <Input
-        onChange={(event) => onWriteTask(event)} // add this
-        style={{ width: "calc(100% - 60px)" }}
-        placeholder="Add a Task"
-        size="large"
-        value={newTask} // add this
-      />
-       <Button
-        onClick={onTaskAdded} // add this
-        type="primary"
-        style={{ height: "40px", backgroundColor: "#3f67ff" }}
-      >
-        Add
-      </Button>
-      </Input.Group>
-    </Col>
-      <Col span={8} offset={8}>
-        {tasks && (
-          <List
-            size="small"
-            bordered
-            dataSource={tasks}
-            renderItem={(task: any) => (
-<List.Item
-  actions={[
-    <div>
-      {task.completed ? (
-        <Checkbox defaultChecked={true} disabled />
-      ) : (
-        <Checkbox
-          onChange={(event) =>
-            onCheckboxChange(event, task.task_id)
-          }
-        />
-      )}
-    </div>,
-  ]}
->                <List.Item.Meta
-                  title={task.content}
-                  description={
-                    <a
-                      href={`https://explorer.aptoslabs.com/account/${task.address}/`}
-                      target="_blank"
-                    >{`${task.address.slice(0, 6)}...${task.address.slice(-5)}`}</a>
-                  }
+        {!accountHasList ? (
+          <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
+            <Col span={8} offset={8}>
+              <Button
+                disabled={!account}
+                block
+                onClick={addNewList}
+                type="primary"
+                style={{ height: "40px", backgroundColor: "#3f67ff" }}
+              >
+                Add new list
+              </Button>
+            </Col>
+          </Row>
+        ) : (
+          <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
+            <Col span={8} offset={8}>
+              <Input.Group compact>
+                <Input
+                  onChange={(event) => onWriteTask(event)}
+                  style={{ width: "calc(100% - 60px)" }}
+                  placeholder="Add a Task"
+                  size="large"
+                  value={newTask}
                 />
-              </List.Item>
-            )}
-          />
+                <Button onClick={onTaskAdded} type="primary" style={{ height: "40px", backgroundColor: "#3f67ff" }}>
+                  Add
+                </Button>
+              </Input.Group>
+            </Col>
+            <Col span={8} offset={8}>
+              {tasks && (
+                <List
+                  size="small"
+                  bordered
+                  dataSource={tasks}
+                  renderItem={(task: Task) => (
+                    <List.Item
+                      actions={[
+                        <div>
+                          {task.completed ? (
+                            <Checkbox defaultChecked={true} disabled />
+                          ) : (
+                            <Checkbox onChange={(event) => onCheckboxChange(event, task.task_id)} />
+                          )}
+                        </div>,
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={task.task_id}
+                        description={
+                          <a
+                            href={`https://explorer.aptoslabs.com/account/${task.address}/`}
+                            target="_blank"
+                          >{`${task.address.slice(0, 6)}...${task.address.slice(-5)}`}</a>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              )}
+            </Col>
+          </Row>
         )}
-      </Col>
-    </Row>
-  )
-}
       </Spin>
-  </>
-        </Col>
-      </Row>
-    )}
-  
   </>
   );
 }
